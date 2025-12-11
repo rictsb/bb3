@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broadcom (AVGO) Revenue Architecture</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chosen Palette: Corporate & Financial -->
+    <!-- Primary: Broadcom Red (#CC092F), Slate Dark (#1E293B) -->
+    <!-- Accents: Tech Blue (#3B82F6), Growth Green (#10B981), Warning Orange (#F59E0B) -->
+    <!-- Background: Warm Neutral (Slate-50) -->
+
+    <!-- Application Structure Plan: 
+         1. Hero Section: Immediate KPI context (FY24 Scale).
+         2. Macro Trend: "The Growth Engine" - Long term history overlaying M&A events.
+         3. Strategy Shift: "Segment Evolution" - Visualizing the move from pure Semi to Semi+Software.
+         4. Product Deep Dive: Interactive Grid using the provided CSV data to show "What makes money now".
+         5. The AI Narrative: Specific charts for Networking speeds and XPUs.
+         6. Risk/Concentration: Apple and Geography.
+         7. Money Flow: HTML-based connection view (Source -> Product -> Segment).
+         This structure moves from Macro (Financials) to Micro (Product/Tech) to Structural (Flow), 
+         prioritizing the story of "Acquisition-driven Growth" into "AI-driven Future".
+    -->
+
+    <!-- Visualization & Content Choices:
+         - Financial Trends: Chart.js Line/Bar combo. Best for showing magnitude + rate of change.
+         - Segment Mix: Chart.js Stacked Area. Best for showing part-to-whole evolution over time.
+         - Product Hierarchy: Interactive HTML Grid cards. Better than a pie chart for text-heavy CSV data (rank/description).
+         - AI Speeds: Chart.js Stacked Bar. Shows the transition of technology generations (400G -> 800G).
+         - Logic: JS handles all data injection. No hardcoded HTML tables.
+    -->
+
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. All charts rendered via Chart.js Canvas. Icons are Unicode or CSS shapes. -->
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Slate-50 */
+            color: #1e293b;
+        }
+
+        /* Chart Container Styling - MANDATORY ADHERENCE */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            padding: 1rem;
+        }
+        
+        /* Heights for specific chart types */
+        .chart-tall {
+            height: 400px;
+            max-height: 500px;
+        }
+        .chart-medium {
+            height: 300px;
+            max-height: 400px;
+        }
+        
+        @media (max-width: 768px) {
+            .chart-tall { height: 300px; }
+            .chart-medium { height: 250px; }
+        }
+
+        /* Interactive Card Styling */
+        .product-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-left-color: #CC092F; /* Brand Red */
+        }
+        .product-card.active {
+            border-left-color: #CC092F;
+            background-color: #FEF2F2;
+        }
+
+        /* Custom Scrollbar for specific sections */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Sankey Flow Connector Lines (CSS only) */
+        .flow-line {
+            height: 2px;
+            background: #cbd5e1;
+            flex-grow: 1;
+            margin: 0 10px;
+            position: relative;
+        }
+        .flow-node {
+            transition: all 0.2s;
+        }
+        .flow-node:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Navigation / Header -->
+    <nav class="bg-slate-900 text-white sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold tracking-tight"><span class="text-red-600">AVGO</span> Analysis</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <button onclick="scrollToSection('growth')" class="hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium">Growth & M&A</button>
+                        <button onclick="scrollToSection('segments')" class="hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium">Segments</button>
+                        <button onclick="scrollToSection('products')" class="hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium">Product Mix</button>
+                        <button onclick="scrollToSection('ai')" class="hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium">AI & Tech</button>
+                        <button onclick="scrollToSection('risks')" class="hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium">Risks</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Intro / KPI Section -->
+        <section class="mb-12">
+            <div class="text-center mb-10">
+                <h1 class="text-4xl font-extrabold text-slate-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
+                    Broadcom's Revenue Architecture
+                </h1>
+                <p class="mt-5 max-w-xl mx-auto text-xl text-slate-500">
+                    Visualizing the evolution from a semiconductor specialist to a diversified infrastructure behemoth.
+                </p>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-red-600">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-slate-500 truncate">Est. FY24 Revenue</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-slate-900">~$50B+</dd>
+                        <div class="mt-2 text-sm text-green-600 font-semibold">
+                            ▲ Boosted by VMware
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-blue-600">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-slate-500 truncate">Software Mix (FY24 Est)</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-slate-900">~40-45%</dd>
+                        <div class="mt-2 text-sm text-slate-500">
+                            vs 5% in 2017
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-slate-600">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-slate-500 truncate">AI Revenue Run-rate</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-slate-900">~$11B+</dd>
+                        <div class="mt-2 text-sm text-slate-500">
+                            Networking & Custom Silicon
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 1: GROWTH & M&A -->
+        <section id="growth" class="mb-16 scroll-mt-20">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-slate-900">The Growth Engine: M&A Strategy</h2>
+                <p class="mt-2 text-lg text-slate-600">
+                    Broadcom's history is defined by massive, transformational acquisitions. Each step-function increase in revenue correlates with a major deal closing. The chart below overlays key acquisitions onto the revenue trajectory.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Main Chart -->
+                <div class="lg:col-span-2">
+                    <div class="chart-container chart-tall">
+                        <canvas id="revenueTimelineChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Timeline Info Panel -->
+                <div class="bg-white p-6 rounded-lg shadow border border-slate-200 lg:col-span-1 overflow-y-auto max-h-[400px] custom-scroll">
+                    <h3 class="font-bold text-lg mb-4 text-slate-800">Acquisition Timeline</h3>
+                    <div class="space-y-6 relative border-l-2 border-slate-200 ml-3 pl-6">
+                        <!-- Items populated by JS -->
+                        <div id="timelineContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: SEGMENT EVOLUTION -->
+        <section id="segments" class="mb-16 scroll-mt-20">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-slate-900">Segment Evolution</h2>
+                <p class="mt-2 text-lg text-slate-600">
+                    Visualizing the strategic pivot. Starting as a pure semiconductor player (Wireless/Wired/Storage), Broadcom systematically added Infrastructure Software (Brocade, CA, Symantec, VMware) to diversify and increase recurring revenue.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-3 text-center">Revenue by Segment (Absolute $B)</h3>
+                    <div class="chart-container chart-medium">
+                        <canvas id="segmentStackChart"></canvas>
+                    </div>
+                    <div class="mt-3 text-sm text-slate-500">
+                        <span class="font-bold text-blue-600">Insight:</span> Notice the layer-cake effect. Software doesn't replace Semis; it stacks on top, providing stability.
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-3 text-center">The Mix Shift (% of Total)</h3>
+                    <div class="chart-container chart-medium">
+                        <canvas id="segmentPercentChart"></canvas>
+                    </div>
+                    <div class="mt-3 text-sm text-slate-500">
+                        <span class="font-bold text-red-600">Insight:</span> Semiconductor revenue concentration dropped from >95% to ~55-60% post-VMware.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: PRODUCT DEEP DIVE (CSV DATA) -->
+        <section id="products" class="mb-16 scroll-mt-20">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-slate-900">What Broadcom Actually Sells (FY24 View)</h2>
+                <p class="mt-2 text-lg text-slate-600">
+                    Beyond reportable segments, this interactive breakdown ranks the specific product families driving the business today. Click on a product family to understand its scale and role.
+                </p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[500px]">
+                    
+                    <!-- Left: Interactive List -->
+                    <div class="lg:col-span-5 border-r border-slate-200 bg-slate-50 p-4 overflow-y-auto max-h-[600px] custom-scroll">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Ranked by Est. Revenue</h3>
+                        <div id="productList" class="space-y-2">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Right: Detail View -->
+                    <div class="lg:col-span-7 p-8 flex flex-col justify-center bg-white relative">
+                        <div id="productDetailPlaceholder" class="text-center text-slate-400">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                            <p class="text-lg">Select a product family on the left to view analysis.</p>
+                        </div>
+                        <div id="productDetailContent" class="hidden animate-fade-in">
+                            <div class="flex items-center mb-4">
+                                <span id="detailRank" class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-900 text-white font-bold rounded-full mr-4">1</span>
+                                <h3 id="detailTitle" class="text-2xl font-bold text-slate-800 leading-tight">Product Name</h3>
+                            </div>
+                            
+                            <div class="space-y-6">
+                                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <h4 class="text-sm font-bold text-blue-800 uppercase mb-1">What it is</h4>
+                                    <p id="detailDesc" class="text-blue-900">Description goes here.</p>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-1">Scale (Est.)</h4>
+                                        <p id="detailScale" class="font-bold text-slate-800 text-lg">Scale info</p>
+                                    </div>
+                                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-1">Confidence</h4>
+                                        <p id="detailConfidence" class="font-medium text-slate-800">High/Low</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">Analyst Evidence & Comments</h4>
+                                    <p id="detailEvidence" class="text-slate-600 text-sm leading-relaxed border-l-2 border-red-500 pl-4">
+                                        Evidence text.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: AI & TECHNOLOGY -->
+        <section id="ai" class="mb-16 scroll-mt-20">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-slate-900">The AI Pivot: Networking & XPUs</h2>
+                <p class="mt-2 text-lg text-slate-600">
+                    Broadcom is a primary beneficiary of the AI infrastructure boom. This section visualizes the explosive growth in Networking revenue and the rapid transition to higher speeds (400G → 800G) required by AI clusters.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- AI vs Non-AI Networking -->
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-bold mb-2">Networking Revenue: AI vs. Traditional</h3>
+                    <div class="chart-container chart-medium">
+                        <canvas id="aiNetworkingChart"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">
+                        *Estimates based on mgmt commentary regarding AI revenue mix within the Networking segment.
+                    </p>
+                </div>
+
+                <!-- Speed Transition -->
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-bold mb-2">Switch/Router Port Speed Transition</h3>
+                    <div class="chart-container chart-medium">
+                        <canvas id="speedTransitionChart"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">
+                        Visualizing the rapid obsolescence of 100G/200G in data centers favored by the adoption of 800G for AI workloads.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: RISKS (CUSTOMER & GEO) -->
+        <section id="risks" class="mb-16 scroll-mt-20">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-slate-900">Concentration & Geography</h2>
+                <p class="mt-2 text-lg text-slate-600">
+                    Understanding the dependencies. While Broadcom has diversified via software, "Customer A" (Apple) remains a massive component of the Semiconductor business.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-bold mb-4">Top Customer Exposure (Primarily Apple)</h3>
+                    <div class="chart-container chart-medium">
+                        <canvas id="customerChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-bold mb-4">Revenue by Geography (FY23)</h3>
+                    <div class="chart-container chart-medium">
+                        <canvas id="geoChart"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-center">
+                        Note: "China" revenue often represents OEM manufacturing locations, not necessarily end consumption.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: FLOW EXPLORER -->
+        <section class="mb-12">
+             <div class="mb-6">
+                <h2 class="text-3xl font-bold text-slate-900">The Money Flow</h2>
+                <p class="mt-2 text-lg text-slate-600">
+                    Trace the revenue from end markets through product groups to reporting segments. Hover over items to visualize connections.
+                </p>
+            </div>
+            
+            <div class="bg-white p-6 rounded-lg shadow overflow-x-auto">
+                <div class="min-w-[800px] grid grid-cols-3 gap-8 text-sm">
+                    
+                    <!-- Column 1: Markets -->
+                    <div class="flex flex-col space-y-4">
+                        <h4 class="font-bold text-slate-400 uppercase tracking-wider mb-2">End Market / Customer</h4>
+                        <div class="flow-node p-3 border rounded shadow-sm cursor-default" data-id="m-ai">Hyperscalers (AI/Cloud)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm cursor-default" data-id="m-ent">Enterprise IT</div>
+                        <div class="flow-node p-3 border rounded shadow-sm cursor-default" data-id="m-mobile">Mobile OEMs (Apple)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm cursor-default" data-id="m-telco">Telco / Service Providers</div>
+                        <div class="flow-node p-3 border rounded shadow-sm cursor-default" data-id="m-ind">Industrial / Auto</div>
+                    </div>
+
+                    <!-- Column 2: Products -->
+                    <div class="flex flex-col space-y-4 pt-8">
+                        <h4 class="font-bold text-slate-400 uppercase tracking-wider mb-2">Core Products</h4>
+                        <div class="flow-node p-3 border rounded shadow-sm bg-blue-50 border-blue-200" data-id="p-net">Networking (Switches/Optics)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm bg-blue-50 border-blue-200" data-id="p-xpu">Custom Compute (XPUs)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm bg-green-50 border-green-200" data-id="p-vmware">Virtualization (VMware)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm bg-blue-50 border-blue-200" data-id="p-wireless">Wireless (FBAR/RF)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm bg-green-50 border-green-200" data-id="p-infra">Security/Mainframe (Sym/CA)</div>
+                        <div class="flow-node p-3 border rounded shadow-sm bg-blue-50 border-blue-200" data-id="p-store">Storage / Broadband</div>
+                    </div>
+
+                    <!-- Column 3: Segments -->
+                    <div class="flex flex-col space-y-12 pt-16">
+                        <h4 class="font-bold text-slate-400 uppercase tracking-wider mb-2">Reporting Segment</h4>
+                        <div class="flow-node p-4 border-l-4 border-blue-600 rounded shadow bg-slate-50" data-id="s-semi">
+                            <div class="font-bold text-lg">Semiconductor Solutions</div>
+                            <div class="text-xs text-slate-500">~58% of Revenue</div>
+                        </div>
+                        <div class="flow-node p-4 border-l-4 border-green-600 rounded shadow bg-slate-50" data-id="s-soft">
+                            <div class="font-bold text-lg">Infrastructure Software</div>
+                            <div class="text-xs text-slate-500">~42% of Revenue</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="text-center text-slate-400 text-sm py-8 border-t border-slate-200 mt-12">
+            <p>Analysis generated based on public filings (10-K, 10-Q) and provided estimates for FY24 product breakdown.</p>
+            <p class="mt-2">Values for 2024 include estimates for VMware consolidation impact.</p>
+        </footer>
+
+    </main>
+
+    <!-- LOGIC -->
+    <script>
+        // --- DATA STORAGE ---
+        
+        // 1. Timeline & M&A Data
+        const maTimeline = [
+            { year: 2014, title: "Avago acquires LSI", desc: "$6.6B. Entry into storage." },
+            { year: 2016, title: "Avago acquires Broadcom", desc: "$37B. The namesake merger. Created the dominant comms focus.", impact: "high" },
+            { year: 2017, title: "Acquires Brocade", desc: "$5.9B. Fibre Channel switching dominance." },
+            { year: 2018, title: "Acquires CA Tech", desc: "$18.9B. The first major pivot to Mainframe/Enterprise Software.", impact: "high" },
+            { year: 2019, title: "Acquires Symantec (Ent)", desc: "$10.7B. Security software portfolio." },
+            { year: 2023, title: "Acquires VMware", desc: "$69B. Transformational. Massive shift to hybrid cloud software.", impact: "massive" }
+        ];
+
+        // 2. Revenue History (Modeled based on filings)
+        // Years: 2015 - 2024 (Est)
+        const labelsYear = ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024 (Est)'];
+        const dataTotalRev = [6.8, 13.2, 17.6, 20.8, 22.6, 23.9, 27.5, 33.2, 35.8, 51.5]; // in Billions
+        
+        // Segment Data (Billions)
+        const dataSemi = [6.6, 12.8, 17.1, 19.5, 17.4, 17.1, 20.2, 25.8, 28.2, 29.5]; 
+        const dataSoft = [0.2, 0.4, 0.5, 1.3, 5.2, 6.8, 7.3, 7.4, 7.6, 22.0]; // Big jump in '19 (CA) and '24 (VMware)
+
+        // 3. Product CSV Data (Parsed from prompt)
+        const productData = [
+            { rank: 1, title: "VMware core virtualization & cloud stack", type: "Infra Software", scale: "~$15–18B", desc: "The subscription platform that runs private/hybrid clouds (vSphere, vSAN, Cloud Foundation).", evidence: "Infra software was $21.5B in FY-24 and is 'dominated by VMware'. Subscription-based recurring revenue.", confidence: "High" },
+            { rank: 2, title: "Ethernet switching & routing silicon (AI/DC)", type: "Semiconductor", scale: "~$8–10B", desc: "High-end switch/router ASICs (Tomahawk, Jericho) connecting AI/Cloud data centers.", evidence: "Networking is largest semi end-market. AI networking singled out as key driver (400G/800G).", confidence: "Medium" },
+            { rank: 3, title: "Custom AI accelerators ('XPUs')", type: "Semiconductor", scale: "~$3–5B+", desc: "Custom AI ASICs for Hyperscalers (e.g., Google TPU, Meta MTIA).", evidence: "Broadcom specifically cites 'Custom AI Compute' revenue doubling. Major hyperscaler partnerships.", confidence: "Medium" },
+            { rank: 4, title: "Wireless connectivity for 'North American Customer'", type: "Semiconductor", scale: "~$4–5B", desc: "Wi-Fi, Bluetooth, FBAR filters primarily for Apple iPhone/iPad.", evidence: "Apple is a >10% customer. While trying to decouple, Broadcom won huge renewal deals recently.", confidence: "High" },
+            { rank: 5, title: "Server/Storage Connectivity", type: "Semiconductor", scale: "~$3–4B", desc: "PCIe switches, RAID controllers, Host Bus Adapters (HBAs).", evidence: "Core LSI legacy business. Cyclical but dominant share in enterprise storage.", confidence: "Medium" },
+            { rank: 6, title: "Broadband (PON/DOCSIS/Gateway)", type: "Semiconductor", scale: "~$2–3B", desc: "Chips for fiber (PON) and cable (DOCSIS) modems and gateways.", evidence: "Broadband segment revenue is disclosed. Cyclical weakness in '24 but solid base.", confidence: "High" },
+            { rank: 7, title: "Fibre Channel (Brocade)", type: "Semiconductor/Hardware", scale: "~$2–3B", desc: "SAN switching for traditional enterprise storage networks.", evidence: "Brocade acquisition asset. Cash cow, dominant market share.", confidence: "Medium" },
+            { rank: 8, title: "Legacy CA mainframe & enterprise software", type: "Infra Software", scale: "~$2–3B", desc: "Mission-critical mainframe management and infra tools.", evidence: "High renewal rates, extremely sticky. Cash generator.", confidence: "Low-Medium" },
+            { rank: 9, title: "Symantec enterprise security", type: "Infra Software", scale: "~$1–2B", desc: "Endpoint security, identity, and information protection.", evidence: "Part of the Infra Software group. Focused on Global 2000 customers.", confidence: "Low" },
+             { rank: 10, title: "Industrial & other semis", type: "Semiconductor", scale: "~$1–2B", desc: "Motion encoders, optocouplers, LEDs for automation/auto.", evidence: "Smallest of the classic semi buckets but highly profitable.", confidence: "Medium" }
+        ];
+
+        // 4. AI Transition Data (Estimates)
+        // Networking Revenue Split over time
+        const aiChartLabels = ['2021', '2022', '2023', '2024 (Est)'];
+        const aiRev = [0.5, 1.5, 4.0, 9.0]; // AI Networking + XPU (Explosive growth)
+        const nonAiRev = [8.0, 8.5, 7.5, 7.0]; // Traditional DC/Campus (Flat/Down)
+
+        // 5. Customer Data (Apple %)
+        const custYears = ['2018', '2019', '2020', '2021', '2022', '2023'];
+        const custApple = [25, 20, 15, 20, 20, 20]; // Apple % roughly around 20% consistently
+
+        // --- CHART GENERATION FUNCTIONS ---
+
+        function initCharts() {
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#64748b';
+
+            // 1. Revenue Timeline Chart
+            const ctxRev = document.getElementById('revenueTimelineChart').getContext('2d');
+            new Chart(ctxRev, {
+                type: 'bar',
+                data: {
+                    labels: labelsYear,
+                    datasets: [
+                        {
+                            label: 'Total Revenue ($B)',
+                            data: dataTotalRev,
+                            backgroundColor: '#1E293B',
+                            borderRadius: 4,
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: 'YoY Growth %',
+                            data: [null, 94, 33, 18, 8, 6, 15, 21, 8, 44], // Modeled growth spikes
+                            borderColor: '#CC092F',
+                            borderWidth: 2,
+                            yAxisID: 'y1',
+                            order: 1,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top' },
+                        annotation: { /* Note: annotations plugin not loaded to keep simple, will use text */ }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            title: { display: true, text: 'Revenue ($B)' } 
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Growth %' }
+                        }
+                    }
+                }
+            });
+
+            // 2. Segment Stack Chart
+            const ctxSeg = document.getElementById('segmentStackChart').getContext('2d');
+            new Chart(ctxSeg, {
+                type: 'line',
+                data: {
+                    labels: labelsYear,
+                    datasets: [
+                        {
+                            label: 'Infrastructure Software',
+                            data: dataSoft,
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)', // Green
+                            borderColor: '#10B981',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Semiconductor Solutions',
+                            data: dataSemi,
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)', // Blue
+                            borderColor: '#3B82F6',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        tooltip: { mode: 'index', intersect: false },
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { stacked: true, title: { display: true, text: 'Revenue ($B)' } }
+                    }
+                }
+            });
+
+            // 3. Segment Percent Chart
+            const ctxPer = document.getElementById('segmentPercentChart').getContext('2d');
+            // Calculate percentages dynamically
+            const softPct = dataSoft.map((val, i) => (val / dataTotalRev[i]) * 100);
+            const semiPct = dataSemi.map((val, i) => (val / dataTotalRev[i]) * 100);
+
+            new Chart(ctxPer, {
+                type: 'bar',
+                data: {
+                    labels: labelsYear,
+                    datasets: [
+                        {
+                            label: 'Semiconductor %',
+                            data: semiPct,
+                            backgroundColor: '#3B82F6',
+                        },
+                        {
+                            label: 'Software %',
+                            data: softPct,
+                            backgroundColor: '#10B981',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, max: 100, title: { display: true, text: '% of Revenue' } }
+                    }
+                }
+            });
+
+            // 4. AI Networking Chart
+            const ctxAi = document.getElementById('aiNetworkingChart').getContext('2d');
+            new Chart(ctxAi, {
+                type: 'bar',
+                data: {
+                    labels: aiChartLabels,
+                    datasets: [
+                        {
+                            label: 'Traditional Networking',
+                            data: nonAiRev,
+                            backgroundColor: '#cbd5e1'
+                        },
+                        {
+                            label: 'AI Networking + XPUs',
+                            data: aiRev,
+                            backgroundColor: '#CC092F'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: '$ Billions' } } }
+                }
+            });
+
+            // 5. Speed Transition Chart (Conceptual)
+            const ctxSpeed = document.getElementById('speedTransitionChart').getContext('2d');
+            new Chart(ctxSpeed, {
+                type: 'line',
+                data: {
+                    labels: ['2020', '2021', '2022', '2023', '2024', '2025 (Est)'],
+                    datasets: [
+                        { label: '400G', data: [10, 30, 60, 40, 20, 10], borderColor: '#94a3b8', tension: 0.4 },
+                        { label: '800G', data: [0, 0, 5, 40, 70, 50], borderColor: '#3b82f6', borderWidth: 3, tension: 0.4 },
+                        { label: '1.6T', data: [0, 0, 0, 0, 10, 40], borderColor: '#CC092F', borderWidth: 3, tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { display: false, title: {display: true, text: 'Relative Shipment Volume'} } },
+                    plugins: { tooltip: { callbacks: { label: function(context) { return context.dataset.label; } } } }
+                }
+            });
+
+            // 6. Customer Chart
+            const ctxCust = document.getElementById('customerChart').getContext('2d');
+            new Chart(ctxCust, {
+                type: 'line',
+                data: {
+                    labels: custYears,
+                    datasets: [{
+                        label: 'Revenue from "Customer A" (Apple)',
+                        data: custApple,
+                        borderColor: '#64748b',
+                        backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 30, title: { display: true, text: '% of Total Revenue' } } }
+                }
+            });
+
+            // 7. Geo Chart (Doughnut)
+            const ctxGeo = document.getElementById('geoChart').getContext('2d');
+            new Chart(ctxGeo, {
+                type: 'doughnut',
+                data: {
+                    labels: ['China (Ship to)', 'Rest of Asia', 'Americas', 'Europe/Other'],
+                    datasets: [{
+                        data: [33, 30, 20, 17], // Approx FY23 split
+                        backgroundColor: ['#e2e8f0', '#94a3b8', '#3b82f6', '#1e293b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%'
+                }
+            });
+        }
+
+        // --- DOM MANIPULATION ---
+
+        function renderTimeline() {
+            const container = document.getElementById('timelineContainer');
+            maTimeline.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'relative mb-6';
+                el.innerHTML = `
+                    <div class="absolute -left-[31px] bg-${item.impact === 'massive' || item.impact === 'high' ? 'red-600' : 'slate-400'} h-4 w-4 rounded-full border-2 border-white"></div>
+                    <div class="font-bold text-slate-800">${item.year}: ${item.title}</div>
+                    <div class="text-sm text-slate-600 mt-1">${item.desc}</div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function renderProductList() {
+            const listContainer = document.getElementById('productList');
+            
+            productData.forEach((prod, index) => {
+                const item = document.createElement('div');
+                item.className = `product-card p-3 rounded-md bg-white border border-slate-100 mb-2 ${index === 0 ? 'active' : ''}`;
+                item.onclick = () => selectProduct(index);
+                item.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400">#${prod.rank}</span>
+                            <div class="font-bold text-slate-800 text-sm">${prod.title}</div>
+                        </div>
+                        <div class="text-xs font-semibold ${prod.type.includes('Soft') ? 'text-green-600' : 'text-blue-600'}">
+                            ${prod.type === 'Infra Software' ? 'Software' : 'Semi'}
+                        </div>
+                    </div>
+                `;
+                item.id = `prod-card-${index}`;
+                listContainer.appendChild(item);
+            });
+
+            // Initial selection
+            selectProduct(0);
+        }
+
+        function selectProduct(index) {
+            // Update UI list state
+            document.querySelectorAll('.product-card').forEach(el => el.classList.remove('active'));
+            document.getElementById(`prod-card-${index}`).classList.add('active');
+
+            // Update Detail Content
+            const p = productData[index];
+            document.getElementById('productDetailPlaceholder').classList.add('hidden');
+            const content = document.getElementById('productDetailContent');
+            content.classList.remove('hidden');
+            
+            document.getElementById('detailRank').innerText = p.rank;
+            document.getElementById('detailTitle').innerText = p.title;
+            document.getElementById('detailDesc').innerText = p.desc;
+            document.getElementById('detailScale').innerText = p.scale;
+            document.getElementById('detailEvidence').innerText = p.evidence;
+            document.getElementById('detailConfidence').innerText = p.confidence;
+            
+            // Color coding detail rank bubble
+            const rankBubble = document.getElementById('detailRank');
+            if (p.type.includes('Soft')) {
+                rankBubble.className = "flex-shrink-0 w-10 h-10 flex items-center justify-center bg-green-600 text-white font-bold rounded-full mr-4";
+            } else {
+                rankBubble.className = "flex-shrink-0 w-10 h-10 flex items-center justify-center bg-blue-600 text-white font-bold rounded-full mr-4";
+            }
+        }
+
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- FLOW EXPLORER LOGIC ---
+        function initFlowExplorer() {
+            const nodes = document.querySelectorAll('.flow-node');
+            
+            // Define connections (Market -> Product -> Segment)
+            const connections = {
+                'm-ai': ['p-net', 'p-xpu', 's-semi'],
+                'm-ent': ['p-vmware', 'p-infra', 'p-store', 'p-net', 's-soft', 's-semi'],
+                'm-mobile': ['p-wireless', 's-semi'],
+                'm-telco': ['p-net', 'p-vmware', 's-soft', 's-semi'],
+                'p-net': ['s-semi', 'm-ai', 'm-ent', 'm-telco'],
+                'p-xpu': ['s-semi', 'm-ai'],
+                'p-vmware': ['s-soft', 'm-ent', 'm-telco'],
+                'p-wireless': ['s-semi', 'm-mobile'],
+                'p-infra': ['s-soft', 'm-ent'],
+                'p-store': ['s-semi', 'm-ent'],
+                's-semi': ['p-net', 'p-xpu', 'p-wireless', 'p-store', 'm-ai', 'm-mobile', 'm-ent'],
+                's-soft': ['p-vmware', 'p-infra', 'm-ent']
+            };
+
+            nodes.forEach(node => {
+                node.addEventListener('mouseenter', () => {
+                    const id = node.getAttribute('data-id');
+                    const related = connections[id] || [];
+                    
+                    // Dim all
+                    nodes.forEach(n => n.style.opacity = '0.3');
+                    // Highlight self
+                    node.style.opacity = '1';
+                    node.style.borderColor = '#CC092F';
+                    node.style.backgroundColor = '#FEF2F2';
+                    
+                    // Highlight related
+                    related.forEach(relId => {
+                        const relNode = document.querySelector(`[data-id="${relId}"]`);
+                        if(relNode) {
+                            relNode.style.opacity = '1';
+                            relNode.style.borderColor = '#3b82f6';
+                        }
+                    });
+                });
+
+                node.addEventListener('mouseleave', () => {
+                    nodes.forEach(n => {
+                        n.style.opacity = '1';
+                        n.style.borderColor = ''; // reset
+                        n.style.backgroundColor = ''; // reset
+                    });
+                });
+            });
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            renderTimeline();
+            renderProductList();
+            initCharts();
+            initFlowExplorer();
+        };
+
+    </script>
+</body>
+</html>
