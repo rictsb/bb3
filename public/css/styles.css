@@ -1,0 +1,216 @@
+/* Bitcoin Mining Tracker - Custom Styles */
+
+/* Navigation buttons */
+.nav-btn {
+    @apply px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors;
+}
+.nav-btn.active {
+    @apply bg-orange-600 text-white;
+}
+
+/* Cards */
+.card {
+    @apply bg-gray-800 rounded-lg border border-gray-700 p-4;
+}
+.card-header {
+    @apply text-lg font-semibold mb-3 pb-2 border-b border-gray-700;
+}
+
+/* Tables */
+.data-table {
+    @apply w-full text-sm;
+}
+.data-table th {
+    @apply text-left px-3 py-2 bg-gray-700 text-gray-300 font-medium first:rounded-tl last:rounded-tr;
+}
+.data-table td {
+    @apply px-3 py-2 border-t border-gray-700;
+}
+.data-table tr:hover td {
+    @apply bg-gray-750;
+}
+.data-table .actions {
+    @apply text-right space-x-2;
+}
+
+/* Forms */
+.form-group {
+    @apply mb-4;
+}
+.form-label {
+    @apply block text-sm font-medium text-gray-300 mb-1;
+}
+.form-input {
+    @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500;
+}
+.form-select {
+    @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:border-orange-500 focus:outline-none;
+}
+.form-textarea {
+    @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-400 focus:border-orange-500 focus:outline-none min-h-[100px];
+}
+
+/* Buttons */
+.btn {
+    @apply px-4 py-2 rounded font-medium transition-colors text-sm;
+}
+.btn-primary {
+    @apply bg-orange-600 hover:bg-orange-700 text-white;
+}
+.btn-secondary {
+    @apply bg-gray-600 hover:bg-gray-500 text-white;
+}
+.btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white;
+}
+.btn-success {
+    @apply bg-green-600 hover:bg-green-700 text-white;
+}
+.btn-sm {
+    @apply px-2 py-1 text-xs;
+}
+
+/* Status badges */
+.badge {
+    @apply inline-block px-2 py-0.5 rounded text-xs font-medium;
+}
+.badge-operational {
+    @apply bg-green-900 text-green-300;
+}
+.badge-under_construction {
+    @apply bg-yellow-900 text-yellow-300;
+}
+.badge-planned {
+    @apply bg-blue-900 text-blue-300;
+}
+.badge-curtailed {
+    @apply bg-orange-900 text-orange-300;
+}
+.badge-closed {
+    @apply bg-red-900 text-red-300;
+}
+.badge-pending {
+    @apply bg-yellow-900 text-yellow-300;
+}
+.badge-approved {
+    @apply bg-green-900 text-green-300;
+}
+.badge-rejected {
+    @apply bg-red-900 text-red-300;
+}
+
+/* Stats */
+.stat-card {
+    @apply bg-gray-800 rounded-lg p-4 border border-gray-700;
+}
+.stat-value {
+    @apply text-2xl font-bold text-white;
+}
+.stat-label {
+    @apply text-sm text-gray-400;
+}
+
+/* Clickable rows */
+.clickable-row {
+    @apply cursor-pointer;
+}
+.clickable-row:hover {
+    @apply bg-gray-750;
+}
+
+/* Toast notifications */
+.toast {
+    @apply px-4 py-3 rounded shadow-lg text-sm;
+}
+.toast-success {
+    @apply bg-green-800 text-green-100 border border-green-700;
+}
+.toast-error {
+    @apply bg-red-800 text-red-100 border border-red-700;
+}
+.toast-info {
+    @apply bg-blue-800 text-blue-100 border border-blue-700;
+}
+
+/* Valuation comparison */
+.val-positive {
+    @apply text-green-400;
+}
+.val-negative {
+    @apply text-red-400;
+}
+
+/* Modal header */
+.modal-header {
+    @apply flex items-center justify-between p-4 border-b border-gray-700;
+}
+.modal-title {
+    @apply text-lg font-semibold;
+}
+.modal-close {
+    @apply text-gray-400 hover:text-white text-2xl leading-none;
+}
+.modal-body {
+    @apply p-4;
+}
+.modal-footer {
+    @apply flex justify-end space-x-2 p-4 border-t border-gray-700;
+}
+
+/* Loading state */
+.loading {
+    @apply animate-pulse bg-gray-700 rounded;
+}
+
+/* Empty state */
+.empty-state {
+    @apply text-center py-12 text-gray-400;
+}
+
+/* Quick filters */
+.filter-bar {
+    @apply flex flex-wrap gap-2 mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700;
+}
+.filter-input {
+    @apply bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    @apply flex items-center space-x-2 text-sm text-gray-400 mb-4;
+}
+.breadcrumb a {
+    @apply hover:text-white;
+}
+.breadcrumb .separator {
+    @apply text-gray-600;
+}
+
+/* Gray-750 custom color */
+.bg-gray-750 {
+    background-color: #374151;
+}
+
+/* Responsive table wrapper */
+.table-wrapper {
+    @apply overflow-x-auto;
+}
+
+/* Setting row */
+.setting-row {
+    @apply flex items-center justify-between py-2 border-b border-gray-700;
+}
+.setting-label {
+    @apply text-sm;
+}
+.setting-input {
+    @apply w-32 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-right text-white;
+}
+
+/* Valuation bar */
+.val-bar {
+    @apply h-2 rounded-full bg-gray-700 overflow-hidden;
+}
+.val-bar-fill {
+    @apply h-full rounded-full transition-all;
+}
