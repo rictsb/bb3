@@ -9,30 +9,30 @@ INSERT OR IGNORE INTO companies (id, name, ticker, website, btc_holdings, hash_r
 (4, 'Bitfarms', 'BITF', 'https://bitfarms.com', 905, 11.0, 800000000, 120000000, 'Operations in Canada, US, Paraguay'),
 (5, 'Cipher Mining', 'CIFR', 'https://ciphermining.com', 1034, 8.5, 1200000000, 0, 'Texas-focused operations');
 
--- Sample Sites
-INSERT OR IGNORE INTO sites (id, company_id, name, city, state, country, total_mw_capacity, land_acres, status, utility_provider, power_cost_kwh, power_source, notes) VALUES
+-- Sample Sites (with coordinates)
+INSERT OR IGNORE INTO sites (id, company_id, name, city, state, country, latitude, longitude, total_mw_capacity, land_acres, status, utility_provider, power_cost_kwh, power_source, notes) VALUES
 -- Marathon Sites
-(1, 1, 'Ellendale Facility', 'Ellendale', 'ND', 'USA', 180, 40, 'operational', 'Basin Electric', 0.028, 'Wind/Grid', 'Joint venture with Applied Digital'),
-(2, 1, 'Garden City', 'Garden City', 'TX', 'USA', 200, 100, 'operational', 'ERCOT', 0.032, 'Grid', 'Acquired from Compute North'),
-(3, 1, 'Granbury Facility', 'Granbury', 'TX', 'USA', 280, 150, 'under_construction', 'ERCOT', 0.035, 'Grid', 'Expansion underway'),
+(1, 1, 'Ellendale Facility', 'Ellendale', 'ND', 'USA', 46.0022, -98.5267, 180, 40, 'operational', 'Basin Electric', 0.028, 'Wind/Grid', 'Joint venture with Applied Digital'),
+(2, 1, 'Garden City', 'Garden City', 'TX', 'USA', 31.8610, -101.4876, 200, 100, 'operational', 'ERCOT', 0.032, 'Grid', 'Acquired from Compute North'),
+(3, 1, 'Granbury Facility', 'Granbury', 'TX', 'USA', 32.4418, -97.7942, 280, 150, 'under_construction', 'ERCOT', 0.035, 'Grid', 'Expansion underway'),
 
 -- Riot Sites
-(4, 2, 'Rockdale Facility', 'Rockdale', 'TX', 'USA', 750, 265, 'operational', 'ERCOT', 0.025, 'Grid', 'Largest Bitcoin mining facility in North America'),
-(5, 2, 'Corsicana Facility', 'Corsicana', 'TX', 'USA', 1000, 500, 'under_construction', 'ERCOT', 0.030, 'Grid', 'Will be largest facility when complete'),
+(4, 2, 'Rockdale Facility', 'Rockdale', 'TX', 'USA', 30.6554, -97.0017, 750, 265, 'operational', 'ERCOT', 0.025, 'Grid', 'Largest Bitcoin mining facility in North America'),
+(5, 2, 'Corsicana Facility', 'Corsicana', 'TX', 'USA', 32.0954, -96.4689, 1000, 500, 'under_construction', 'ERCOT', 0.030, 'Grid', 'Will be largest facility when complete'),
 
 -- CleanSpark Sites
-(6, 3, 'Sandersville', 'Sandersville', 'GA', 'USA', 100, 30, 'operational', 'Georgia Power', 0.042, 'Grid', 'Southeast hub'),
-(7, 3, 'Dalton Campus', 'Dalton', 'GA', 'USA', 75, 25, 'operational', 'Georgia Power', 0.040, 'Grid', NULL),
-(8, 3, 'Norcross Facility', 'Norcross', 'GA', 'USA', 50, 15, 'operational', 'Georgia Power', 0.045, 'Grid', NULL),
-(9, 3, 'Cheyenne WY', 'Cheyenne', 'WY', 'USA', 145, 60, 'planned', 'Black Hills Energy', 0.038, 'Wind/Grid', 'Announced Q2 2024'),
+(6, 3, 'Sandersville', 'Sandersville', 'GA', 'USA', 32.9818, -82.8101, 100, 30, 'operational', 'Georgia Power', 0.042, 'Grid', 'Southeast hub'),
+(7, 3, 'Dalton Campus', 'Dalton', 'GA', 'USA', 34.7698, -84.9702, 75, 25, 'operational', 'Georgia Power', 0.040, 'Grid', NULL),
+(8, 3, 'Norcross Facility', 'Norcross', 'GA', 'USA', 33.9412, -84.2135, 50, 15, 'operational', 'Georgia Power', 0.045, 'Grid', NULL),
+(9, 3, 'Cheyenne WY', 'Cheyenne', 'WY', 'USA', 41.1400, -104.8197, 145, 60, 'planned', 'Black Hills Energy', 0.038, 'Wind/Grid', 'Announced Q2 2024'),
 
 -- Bitfarms Sites
-(10, 4, 'Sherbrooke', 'Sherbrooke', 'QC', 'Canada', 69, 20, 'operational', 'Hydro-Quebec', 0.025, 'Hydro', 'Original flagship facility'),
-(11, 4, 'Sharon PA', 'Sharon', 'PA', 'USA', 120, 50, 'under_construction', 'FirstEnergy', 0.055, 'Grid', 'Former steel mill site'),
+(10, 4, 'Sherbrooke', 'Sherbrooke', 'QC', 'Canada', 45.4010, -71.8929, 69, 20, 'operational', 'Hydro-Quebec', 0.025, 'Hydro', 'Original flagship facility'),
+(11, 4, 'Sharon PA', 'Sharon', 'PA', 'USA', 41.2334, -80.5006, 120, 50, 'under_construction', 'FirstEnergy', 0.055, 'Grid', 'Former steel mill site'),
 
 -- Cipher Sites
-(12, 5, 'Odessa', 'Odessa', 'TX', 'USA', 200, 80, 'operational', 'ERCOT', 0.029, 'Grid', 'Primary facility'),
-(13, 5, 'Black Pearl', 'Midland', 'TX', 'USA', 300, 120, 'under_construction', 'ERCOT', 0.032, 'Grid', 'Major expansion');
+(12, 5, 'Odessa', 'Odessa', 'TX', 'USA', 31.8457, -102.3676, 200, 80, 'operational', 'ERCOT', 0.029, 'Grid', 'Primary facility'),
+(13, 5, 'Black Pearl', 'Midland', 'TX', 'USA', 31.9973, -102.0779, 300, 120, 'under_construction', 'ERCOT', 0.032, 'Grid', 'Major expansion');
 
 -- Sample Subsites/Phases
 INSERT OR IGNORE INTO subsites (id, site_id, name, mw_contracted, mw_energized, hash_rate_eh, status, energization_date, notes) VALUES

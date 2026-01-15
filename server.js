@@ -120,6 +120,21 @@ app.get('/api/sites', (req, res) => {
     res.json(sites);
 });
 
+// Map view - must come before :id route
+app.get('/api/sites/map', (req, res) => {
+    const sites = db.prepare(`
+        SELECT s.id, s.name, s.city, s.state, s.country, s.latitude, s.longitude,
+               s.total_mw_capacity, s.status, s.power_cost_kwh,
+               c.name as company_name, c.ticker as company_ticker,
+               vs.total_mw_energized, vs.total_hash_rate_eh
+        FROM sites s
+        JOIN companies c ON c.id = s.company_id
+        LEFT JOIN v_site_summary vs ON vs.id = s.id
+        WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL
+    `).all();
+    res.json(sites);
+});
+
 app.get('/api/sites/:id', (req, res) => {
     const site = db.prepare('SELECT * FROM sites WHERE id = ?').get(req.params.id);
     if (!site) return res.status(404).json({ error: 'Site not found' });
@@ -788,6 +803,215 @@ app.get('/api/stats', (req, res) => {
         `).all()
     };
     res.json(stats);
+});
+
+// ============================================================================
+// LIVE BTC PRICE API
+// ============================================================================
+
+let btcPriceCache = { price: null, timestamp: null };
+
+app.get('/api/btc-price', async (req, res) => {
+    // Return cached price if less than 60 seconds old
+    if (btcPriceCache.price && btcPriceCache.timestamp &&
+        Date.now() - btcPriceCache.timestamp < 60000) {
+        return res.json(btcPriceCache);
+    }
+
+    try {
+        // Fetch from CoinGecko (free, no API key needed)
+        const https = require('https');
+        const data = await new Promise((resolve, reject) => {
+            https.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', (resp) => {
+                let data = '';
+                resp.on('data', chunk => data += chunk);
+                resp.on('end', () => resolve(JSON.parse(data)));
+            }).on('error', reject);
+        });
+
+        btcPriceCache = {
+            price: data.bitcoin.usd,
+            timestamp: Date.now(),
+            source: 'coingecko'
+        };
+
+        // Optionally update the setting
+        if (req.query.update === 'true') {
+            db.prepare(`UPDATE valuation_settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'btc_price'`)
+                .run(btcPriceCache.price.toString());
+        }
+
+        res.json(btcPriceCache);
+    } catch (err) {
+        // Fall back to stored setting
+        const stored = db.prepare("SELECT value FROM valuation_settings WHERE key = 'btc_price'").get();
+        res.json({
+            price: parseFloat(stored?.value || 60000),
+            timestamp: null,
+            source: 'stored',
+            error: err.message
+        });
+    }
+});
+
+// ============================================================================
+// SCENARIO MODELING API
+// ============================================================================
+
+app.post('/api/scenario', (req, res) => {
+    const { btc_price, mw_value_energized, mw_value_contracted, mw_value_planned,
+            discount_operational, discount_under_construction, discount_planned } = req.body;
+
+    // Build settings object with overrides
+    const baseSettings = {};
+    db.prepare('SELECT key, value FROM valuation_settings').all().forEach(s => {
+        baseSettings[s.key] = parseFloat(s.value) || s.value;
+    });
+
+    const settings = {
+        ...baseSettings,
+        btc_price: btc_price ?? baseSettings.btc_price,
+        mw_value_energized: mw_value_energized ?? baseSettings.mw_value_energized,
+        mw_value_contracted: mw_value_contracted ?? baseSettings.mw_value_contracted,
+        mw_value_planned: mw_value_planned ?? baseSettings.mw_value_planned,
+        discount_operational: discount_operational ?? baseSettings.discount_operational,
+        discount_under_construction: discount_under_construction ?? baseSettings.discount_under_construction,
+        discount_planned: discount_planned ?? baseSettings.discount_planned
+    };
+
+    const multipliers = db.prepare('SELECT * FROM custom_multipliers WHERE is_active = 1').all();
+    const companies = db.prepare('SELECT * FROM v_company_summary').all();
+
+    const results = companies.map(company => {
+        const sites = db.prepare('SELECT * FROM v_site_summary WHERE company_id = ?').all(company.id);
+
+        let totalSiteValue = 0;
+        for (const site of sites) {
+            let siteValue = 0;
+            siteValue += (site.total_mw_energized || 0) * settings.mw_value_energized;
+            siteValue += ((site.total_mw_contracted || 0) - (site.total_mw_energized || 0)) * settings.mw_value_contracted;
+            siteValue += ((site.total_mw_capacity || 0) - (site.total_mw_contracted || 0)) * settings.mw_value_planned;
+
+            const discountKey = `discount_${site.status}`;
+            siteValue *= settings[discountKey] || 1.0;
+
+            if (site.power_cost_kwh) {
+                if (site.power_cost_kwh < settings.power_tier_cheap_threshold) {
+                    siteValue *= settings.power_tier_cheap_multiplier;
+                } else if (site.power_cost_kwh > settings.power_tier_expensive_threshold) {
+                    siteValue *= settings.power_tier_expensive_multiplier;
+                }
+            }
+
+            for (const m of multipliers) {
+                if (m.scope === 'global' ||
+                    (m.scope === 'state' && m.scope_value === site.state) ||
+                    (m.scope === 'site' && parseInt(m.scope_value) === site.id)) {
+                    siteValue *= m.multiplier;
+                }
+            }
+
+            totalSiteValue += siteValue;
+        }
+
+        const btcValue = (company.btc_holdings || 0) * settings.btc_price;
+        const totalValuation = totalSiteValue + btcValue;
+        const marketCap = company.market_cap_usd || 0;
+
+        return {
+            id: company.id,
+            name: company.name,
+            ticker: company.ticker,
+            siteValue: totalSiteValue,
+            btcValue,
+            totalValuation,
+            marketCap,
+            diff: totalValuation - marketCap,
+            ratio: marketCap > 0 ? totalValuation / marketCap : null
+        };
+    });
+
+    res.json({
+        scenario: settings,
+        results,
+        totals: {
+            valuation: results.reduce((s, r) => s + r.totalValuation, 0),
+            marketCap: results.reduce((s, r) => s + r.marketCap, 0),
+            diff: results.reduce((s, r) => s + r.diff, 0)
+        }
+    });
+});
+
+// ============================================================================
+// CHANGE HISTORY API
+// ============================================================================
+
+// Create history table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS change_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER NOT NULL,
+        field_name TEXT NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        changed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_history_entity ON change_history(entity_type, entity_id);
+`);
+
+// Helper to record changes
+function recordChange(entityType, entityId, fieldName, oldValue, newValue) {
+    if (oldValue !== newValue) {
+        db.prepare(`
+            INSERT INTO change_history (entity_type, entity_id, field_name, old_value, new_value)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(entityType, entityId, fieldName, String(oldValue), String(newValue));
+    }
+}
+
+app.get('/api/history', (req, res) => {
+    let query = 'SELECT * FROM change_history WHERE 1=1';
+    const params = [];
+
+    if (req.query.entity_type) {
+        query += ' AND entity_type = ?';
+        params.push(req.query.entity_type);
+    }
+    if (req.query.entity_id) {
+        query += ' AND entity_id = ?';
+        params.push(parseInt(req.query.entity_id));
+    }
+
+    query += ' ORDER BY changed_at DESC LIMIT 100';
+    res.json(db.prepare(query).all(...params));
+});
+
+app.get('/api/history/:entityType/:entityId', (req, res) => {
+    const history = db.prepare(`
+        SELECT * FROM change_history
+        WHERE entity_type = ? AND entity_id = ?
+        ORDER BY changed_at DESC
+    `).all(req.params.entityType, req.params.entityId);
+    res.json(history);
+});
+
+// ============================================================================
+// SITE COORDINATES UPDATE
+// ============================================================================
+
+// Bulk update coordinates
+app.post('/api/sites/coordinates', (req, res) => {
+    const { updates } = req.body; // Array of { id, latitude, longitude }
+    const stmt = db.prepare('UPDATE sites SET latitude = ?, longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+
+    let updated = 0;
+    for (const u of updates) {
+        stmt.run(u.latitude, u.longitude, u.id);
+        updated++;
+    }
+
+    res.json({ updated });
 });
 
 // ============================================================================

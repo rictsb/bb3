@@ -6,6 +6,9 @@
     <title>Bitcoin Mining Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet.js for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
@@ -19,9 +22,11 @@
                         <button onclick="navigate('dashboard')" class="nav-btn" data-page="dashboard">Dashboard</button>
                         <button onclick="navigate('companies')" class="nav-btn" data-page="companies">Companies</button>
                         <button onclick="navigate('sites')" class="nav-btn" data-page="sites">Sites</button>
+                        <button onclick="navigate('map')" class="nav-btn" data-page="map">Map</button>
                         <button onclick="navigate('news')" class="nav-btn" data-page="news">News</button>
                         <button onclick="navigate('review')" class="nav-btn" data-page="review">Review Queue</button>
                         <button onclick="navigate('valuation')" class="nav-btn" data-page="valuation">Valuation</button>
+                        <button onclick="navigate('scenario')" class="nav-btn" data-page="scenario">Scenarios</button>
                         <button onclick="navigate('settings')" class="nav-btn" data-page="settings">Settings</button>
                     </div>
                 </div>
@@ -82,5 +87,7 @@
     <script src="/js/charts.js"></script>
     <script src="/js/search.js"></script>
     <script src="/js/import.js"></script>
+    <script src="/js/scenario.js"></script>
+    <script src="/js/map.js"></script>
 </body>
 </html>

@@ -37,9 +37,11 @@ function navigate(page, params = {}) {
         case 'sites': renderSites(); break;
         case 'site': renderSiteDetail(params.id); break;
         case 'subsite': renderSubsiteDetail(params.id); break;
+        case 'map': renderMap(); break;
         case 'news': renderNews(); break;
         case 'review': renderReviewQueue(); break;
         case 'valuation': renderValuation(); break;
+        case 'scenario': renderScenario(); break;
         case 'settings': renderSettings(); break;
         default: renderDashboard();
     }
