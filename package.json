@@ -1,0 +1,15 @@
+{
+  "name": "bitcoin-mining-tracker",
+  "version": "1.0.0",
+  "description": "Database for tracking Bitcoin mining data center projects",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "init-db": "node scripts/init-db.js",
+    "seed": "node scripts/init-db.js --seed"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "express": "^4.18.2"
+  }
+}
