@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Navigation
 function navigate(page, params = {}) {
     currentPage = page;
+    window.lastNavParams = params; // Store for keyboard shortcuts
     window.location.hash = page;
 
     // Update nav buttons
@@ -77,17 +78,34 @@ async function updatePendingBadge() {
 async function renderDashboard() {
     const app = document.getElementById('app');
     try {
-        const stats = await API.getStats();
+        const [stats, companies, sites, valuations] = await Promise.all([
+            API.getStats(),
+            API.getCompanies(),
+            API.getSites(),
+            API.getAllValuations()
+        ]);
+
+        // Calculate totals
+        const totalBtc = companies.reduce((s, c) => s + (c.btc_holdings || 0), 0);
+        const totalHashRate = companies.reduce((s, c) => s + (c.hash_rate_eh || 0), 0);
+        const totalValuation = valuations.reduce((s, v) => s + v.totalValuation, 0);
+        const totalMarketCap = valuations.reduce((s, v) => s + v.marketCap, 0);
 
         app.innerHTML = `
-            <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-2xl font-bold">Dashboard</h1>
+                <div class="text-sm text-gray-400">
+                    Press <kbd class="kbd">?</kbd> for keyboard shortcuts
+                </div>
+            </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="stat-card">
+            <!-- Key metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+                <div class="stat-card cursor-pointer hover:border-orange-500" onclick="navigate('companies')">
                     <div class="stat-value">${stats.companies}</div>
                     <div class="stat-label">Companies</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card cursor-pointer hover:border-orange-500" onclick="navigate('sites')">
                     <div class="stat-value">${stats.sites}</div>
                     <div class="stat-label">Sites</div>
                 </div>
@@ -99,47 +117,131 @@ async function renderDashboard() {
                     <div class="stat-value">${Format.mw(stats.totalMwCapacity)}</div>
                     <div class="stat-label">MW Capacity</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-value">${Format.eh(totalHashRate)}</div>
+                    <div class="stat-label">Total Hash Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${Format.btc(totalBtc)}</div>
+                    <div class="stat-label">Total BTC</div>
+                </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-6">
+            <!-- Valuation summary -->
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <div class="stat-card cursor-pointer hover:border-orange-500" onclick="navigate('valuation')">
+                    <div class="stat-value text-orange-400">${Format.currency(totalValuation)}</div>
+                    <div class="stat-label">Total Valuation</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${Format.currency(totalMarketCap)}</div>
+                    <div class="stat-label">Total Market Cap</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value ${totalValuation - totalMarketCap > 0 ? 'val-positive' : 'val-negative'}">
+                        ${totalValuation - totalMarketCap > 0 ? '+' : ''}${Format.currency(totalValuation - totalMarketCap)}
+                    </div>
+                    <div class="stat-label">Valuation Difference</div>
+                </div>
+            </div>
+
+            <!-- Charts row 1 -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                 <div class="card">
                     <div class="card-header">Sites by Status</div>
-                    ${stats.sitesByStatus.length ? `
-                        <div class="space-y-2">
-                            ${stats.sitesByStatus.map(s => `
-                                <div class="flex items-center justify-between">
-                                    <span class="badge badge-${s.status}">${Format.status(s.status)}</span>
-                                    <span>${s.count}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : '<div class="empty-state">No sites yet</div>'}
+                    <div class="h-48">
+                        <canvas id="chart-status"></canvas>
+                    </div>
                 </div>
 
                 <div class="card">
-                    <div class="card-header">Top States</div>
-                    ${stats.sitesByState.length ? `
-                        <div class="space-y-2">
-                            ${stats.sitesByState.map(s => `
-                                <div class="flex items-center justify-between">
-                                    <span>${s.state || 'Unknown'}</span>
-                                    <span>${s.count} sites</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : '<div class="empty-state">No sites yet</div>'}
+                    <div class="card-header">Sites by State</div>
+                    <div class="h-48">
+                        <canvas id="chart-state"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">Valuation vs Market Cap</div>
+                    <div class="h-48">
+                        <canvas id="chart-valuation"></canvas>
+                    </div>
                 </div>
             </div>
 
+            <!-- Charts row 2 -->
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="card">
+                    <div class="card-header">MW Capacity by Company</div>
+                    <div class="h-64">
+                        <canvas id="chart-capacity"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">BTC Holdings by Company</div>
+                    <div class="h-64">
+                        <canvas id="chart-btc"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Power cost distribution -->
+            ${sites.filter(s => s.power_cost_kwh).length > 0 ? `
+                <div class="card mb-6">
+                    <div class="card-header">Power Costs by Site ($/kWh)</div>
+                    <div class="h-48">
+                        <canvas id="chart-power"></canvas>
+                    </div>
+                </div>
+            ` : ''}
+
+            <!-- Pending items alert -->
             ${stats.pendingNews + stats.pendingReview > 0 ? `
-                <div class="mt-6 card bg-yellow-900/20 border-yellow-700">
+                <div class="card bg-yellow-900/20 border-yellow-700">
                     <div class="flex items-center justify-between">
-                        <span>${stats.pendingNews} news items and ${stats.pendingReview} review items pending</span>
+                        <div>
+                            <span class="font-medium">${stats.pendingNews + stats.pendingReview} items pending review</span>
+                            <span class="text-gray-400 ml-2">(${stats.pendingNews} news, ${stats.pendingReview} data changes)</span>
+                        </div>
                         <button onclick="navigate('review')" class="btn btn-primary btn-sm">Review Now</button>
                     </div>
                 </div>
             ` : ''}
+
+            <!-- Quick actions -->
+            <div class="card mt-6">
+                <div class="card-header">Quick Actions</div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="showCompanyForm()" class="btn btn-secondary btn-sm">+ Add Company</button>
+                    <button onclick="showSiteForm()" class="btn btn-secondary btn-sm">+ Add Site</button>
+                    <button onclick="showNewsForm()" class="btn btn-secondary btn-sm">+ Add News</button>
+                    <button onclick="showImportModal()" class="btn btn-secondary btn-sm">Import CSV</button>
+                    <button onclick="exportData('all')" class="btn btn-secondary btn-sm">Export All</button>
+                </div>
+            </div>
         `;
+
+        // Render charts after DOM is ready
+        setTimeout(() => {
+            if (stats.sitesByStatus.length) {
+                Charts.createStatusChart('chart-status', stats.sitesByStatus);
+            }
+            if (stats.sitesByState.length) {
+                Charts.createStateChart('chart-state', stats.sitesByState);
+            }
+            if (valuations.length) {
+                Charts.createValuationChart('chart-valuation', valuations);
+            }
+            if (companies.length) {
+                Charts.createCapacityChart('chart-capacity', companies);
+                Charts.createBtcHoldingsChart('chart-btc', companies);
+            }
+            if (sites.filter(s => s.power_cost_kwh).length > 0) {
+                Charts.createPowerCostChart('chart-power', sites);
+            }
+        }, 100);
+
     } catch (e) {
         app.innerHTML = `<div class="text-red-400">Error loading dashboard: ${e.message}</div>`;
     }
@@ -1280,66 +1382,217 @@ async function renderValuation() {
     const app = document.getElementById('app');
     try {
         await Valuation.loadSettings();
-        const valuations = await API.getAllValuations();
+        const [valuations, settings] = await Promise.all([
+            API.getAllValuations(),
+            API.getSettings()
+        ]);
+
+        const totalValuation = valuations.reduce((s, v) => s + v.totalValuation, 0);
+        const totalMarketCap = valuations.reduce((s, v) => s + v.marketCap, 0);
+        const totalDiff = totalValuation - totalMarketCap;
+
+        // Sort valuations for ranking
+        const byUpside = [...valuations].sort((a, b) => (b.ratio || 0) - (a.ratio || 0));
 
         app.innerHTML = `
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-2xl font-bold">Valuation Comparison</h1>
-                <button onclick="navigate('settings')" class="btn btn-secondary">Edit Assumptions</button>
+                <div class="space-x-2">
+                    <button onclick="exportData('companies', 'csv')" class="btn btn-secondary btn-sm">Export CSV</button>
+                    <button onclick="navigate('settings')" class="btn btn-primary">Edit Assumptions</button>
+                </div>
             </div>
 
-            <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <!-- Summary stats -->
+            <div class="grid md:grid-cols-4 gap-4 mb-6">
                 <div class="stat-card">
-                    <div class="stat-value">${Format.currency(valuations.reduce((s, v) => s + v.totalValuation, 0))}</div>
+                    <div class="stat-value text-orange-400">${Format.currency(totalValuation)}</div>
                     <div class="stat-label">Total Valuation</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${Format.currency(valuations.reduce((s, v) => s + v.marketCap, 0))}</div>
+                    <div class="stat-value">${Format.currency(totalMarketCap)}</div>
                     <div class="stat-label">Total Market Cap</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value ${valuations.reduce((s, v) => s + v.diff, 0) > 0 ? 'val-positive' : 'val-negative'}">
-                        ${Format.currency(valuations.reduce((s, v) => s + v.diff, 0))}
+                    <div class="stat-value ${totalDiff > 0 ? 'val-positive' : 'val-negative'}">
+                        ${totalDiff > 0 ? '+' : ''}${Format.currency(totalDiff)}
                     </div>
                     <div class="stat-label">Total Difference</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-value ${totalValuation / totalMarketCap > 1 ? 'val-positive' : 'val-negative'}">
+                        ${((totalValuation / totalMarketCap) * 100).toFixed(0)}%
+                    </div>
+                    <div class="stat-label">Aggregate Val/MC</div>
+                </div>
             </div>
 
+            <!-- Current assumptions -->
+            <div class="card mb-6">
+                <div class="card-header">Current Assumptions</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-400">BTC Price:</span>
+                        <span class="font-medium ml-1">$${Format.number(parseFloat(settings.settings.btc_price))}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">$/MW Energized:</span>
+                        <span class="font-medium ml-1">$${Format.number(parseFloat(settings.settings.mw_value_energized) / 1e6)}M</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">$/MW Contracted:</span>
+                        <span class="font-medium ml-1">$${Format.number(parseFloat(settings.settings.mw_value_contracted) / 1e6)}M</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">$/MW Planned:</span>
+                        <span class="font-medium ml-1">$${Format.number(parseFloat(settings.settings.mw_value_planned) / 1e6)}M</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="card">
+                    <div class="card-header">Valuation vs Market Cap</div>
+                    <div class="h-64">
+                        <canvas id="val-chart-comparison"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">Valuation Ratio (Val / MC)</div>
+                    <div class="h-64">
+                        <canvas id="val-chart-ratio"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ranking cards -->
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <div class="card">
+                    <div class="card-header text-green-400">Most Undervalued</div>
+                    ${byUpside.filter(v => v.ratio > 1).slice(0, 3).map((v, i) => `
+                        <div class="flex items-center justify-between py-2 ${i > 0 ? 'border-t border-gray-700' : ''} cursor-pointer hover:bg-gray-700 -mx-4 px-4" onclick="showCompanyValuation(${v.id})">
+                            <span>${v.ticker || v.name}</span>
+                            <span class="val-positive font-medium">${(v.ratio * 100).toFixed(0)}%</span>
+                        </div>
+                    `).join('') || '<div class="text-gray-400 text-sm">None currently</div>'}
+                </div>
+                <div class="card">
+                    <div class="card-header text-red-400">Most Overvalued</div>
+                    ${byUpside.filter(v => v.ratio < 1).slice(-3).reverse().map((v, i) => `
+                        <div class="flex items-center justify-between py-2 ${i > 0 ? 'border-t border-gray-700' : ''} cursor-pointer hover:bg-gray-700 -mx-4 px-4" onclick="showCompanyValuation(${v.id})">
+                            <span>${v.ticker || v.name}</span>
+                            <span class="val-negative font-medium">${(v.ratio * 100).toFixed(0)}%</span>
+                        </div>
+                    `).join('') || '<div class="text-gray-400 text-sm">None currently</div>'}
+                </div>
+                <div class="card">
+                    <div class="card-header text-yellow-400">Largest BTC Holdings</div>
+                    ${[...valuations].sort((a, b) => (b.btcHoldings || 0) - (a.btcHoldings || 0)).slice(0, 3).map((v, i) => `
+                        <div class="flex items-center justify-between py-2 ${i > 0 ? 'border-t border-gray-700' : ''} cursor-pointer hover:bg-gray-700 -mx-4 px-4" onclick="showCompanyValuation(${v.id})">
+                            <span>${v.ticker || v.name}</span>
+                            <span class="font-medium">${Format.btc(v.btcHoldings)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Detailed table -->
             ${valuations.length ? `
-                <div class="table-wrapper">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Company</th>
-                                <th>Site Value</th>
-                                <th>BTC Value</th>
-                                <th>Total Valuation</th>
-                                <th>Market Cap</th>
-                                <th>Diff</th>
-                                <th>Val / MC</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${valuations.map(v => `
-                                <tr class="clickable-row" onclick="showCompanyValuation(${v.id})">
-                                    <td class="font-medium">${v.name} ${v.ticker ? `(${v.ticker})` : ''}</td>
-                                    <td>${Format.currency(v.siteValue)}</td>
-                                    <td>${Format.currency(v.btcValue)}</td>
-                                    <td class="font-medium">${Format.currency(v.totalValuation)}</td>
-                                    <td>${Format.currency(v.marketCap)}</td>
-                                    <td class="${v.diff > 0 ? 'val-positive' : 'val-negative'}">
-                                        ${v.diff > 0 ? '+' : ''}${Format.currency(v.diff)}
-                                    </td>
-                                    <td class="${v.ratio > 1 ? 'val-positive' : 'val-negative'}">
-                                        ${v.ratio ? (v.ratio * 100).toFixed(0) + '%' : '-'}
-                                    </td>
+                <div class="card">
+                    <div class="card-header">Detailed Comparison</div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Company</th>
+                                    <th>MW Energized</th>
+                                    <th>Hash Rate</th>
+                                    <th>BTC</th>
+                                    <th>Site Value</th>
+                                    <th>BTC Value</th>
+                                    <th>Total Val</th>
+                                    <th>Market Cap</th>
+                                    <th>Diff</th>
+                                    <th>Val/MC</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                ${valuations.map(v => `
+                                    <tr class="clickable-row" onclick="showCompanyValuation(${v.id})">
+                                        <td class="font-medium">${v.name} ${v.ticker ? `<span class="text-gray-400">(${v.ticker})</span>` : ''}</td>
+                                        <td>${Format.mw(v.totalMwEnergized)}</td>
+                                        <td>${Format.eh(v.hashRateEh)}</td>
+                                        <td>${Format.btc(v.btcHoldings)}</td>
+                                        <td>${Format.currency(v.siteValue)}</td>
+                                        <td>${Format.currency(v.btcValue)}</td>
+                                        <td class="font-medium">${Format.currency(v.totalValuation)}</td>
+                                        <td>${Format.currency(v.marketCap)}</td>
+                                        <td class="${v.diff > 0 ? 'val-positive' : 'val-negative'}">
+                                            ${v.diff > 0 ? '+' : ''}${Format.currency(v.diff)}
+                                        </td>
+                                        <td>
+                                            <div class="flex items-center">
+                                                <span class="${v.ratio > 1 ? 'val-positive' : 'val-negative'} font-medium">
+                                                    ${v.ratio ? (v.ratio * 100).toFixed(0) + '%' : '-'}
+                                                </span>
+                                                <div class="ml-2 w-16 h-2 bg-gray-700 rounded overflow-hidden">
+                                                    <div class="h-full ${v.ratio > 1 ? 'bg-green-500' : 'bg-red-500'}"
+                                                         style="width: ${Math.min(v.ratio * 50, 100)}%"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             ` : '<div class="empty-state">Add companies and sites to see valuations</div>'}
         `;
+
+        // Render charts
+        setTimeout(() => {
+            if (valuations.length) {
+                Charts.createValuationChart('val-chart-comparison', valuations);
+
+                // Custom ratio chart
+                const ctx = document.getElementById('val-chart-ratio');
+                if (ctx) {
+                    Charts.destroy('val-chart-ratio');
+                    Charts.instances['val-chart-ratio'] = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: valuations.map(v => v.ticker || v.name),
+                            datasets: [{
+                                label: 'Val/MC Ratio',
+                                data: valuations.map(v => v.ratio ? v.ratio * 100 : 0),
+                                backgroundColor: valuations.map(v => v.ratio > 1 ? Charts.colors.green : Charts.colors.red)
+                            }]
+                        },
+                        options: {
+                            ...Charts.darkThemeOptions,
+                            scales: {
+                                x: { ticks: { color: '#9ca3af' }, grid: { display: false } },
+                                y: {
+                                    ticks: { color: '#9ca3af', callback: v => v + '%' },
+                                    grid: { color: '#374151' }
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                annotation: {
+                                    annotations: {
+                                        line1: { type: 'line', yMin: 100, yMax: 100, borderColor: '#6b7280', borderDash: [5, 5] }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }, 100);
+
     } catch (e) {
         app.innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
     }

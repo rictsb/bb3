@@ -214,3 +214,54 @@
 .val-bar-fill {
     @apply h-full rounded-full transition-all;
 }
+
+/* Keyboard shortcut styling */
+.kbd {
+    @apply px-1.5 py-0.5 bg-gray-700 border border-gray-600 rounded text-xs font-mono;
+}
+
+/* Search result items */
+.search-result-item:first-child {
+    @apply rounded-t-lg;
+}
+.search-result-item:last-child {
+    @apply rounded-b-lg border-0;
+}
+
+/* Chart container */
+canvas {
+    max-width: 100%;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Hover states for interactive elements */
+.stat-card {
+    @apply transition-colors;
+}
+.stat-card:hover {
+    @apply border-gray-600;
+}
+
+/* Better focus states */
+input:focus, select:focus, textarea:focus {
+    @apply ring-1 ring-orange-500/50;
+}
+
+/* Mobile responsive tweaks */
+@media (max-width: 640px) {
+    .nav-btn {
+        @apply px-2 py-1 text-xs;
+    }
+    .stat-value {
+        @apply text-xl;
+    }
+}
